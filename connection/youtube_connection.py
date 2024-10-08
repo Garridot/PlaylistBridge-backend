@@ -33,6 +33,20 @@ class YouTubeAuth:
     def get_token(self, code):
         self.flow.fetch_token(code=code)
         credentials = self.flow.credentials
+
+
+        service = build('people', 'v1', credentials=credentials)
+        
+        # Llama a la API para obtener el perfil del usuario
+        user_profile = service.people().get(resourceName='people/me', personFields='names,emailAddresses,photos').execute()
+        
+        # Extrae la información que necesitas del perfil
+        user_info = {
+            'name': user_profile.get('names', [{}])[0].get('displayName', None),
+            'email': user_profile.get('emailAddresses', [{}])[0].get('value', None),            
+        }
+        print(user_info)
+        
         return credentials.token
 
 

@@ -27,3 +27,6 @@ __pycache__/
 # IDE-specific files (e.g., PyCharm)
 .idea/
 *.iml
+
+# SQLITE
+*.db 
