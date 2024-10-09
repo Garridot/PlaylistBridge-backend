@@ -12,14 +12,15 @@ def token_required(f):
     def decorated(*args, **kwargs):
         token = request.headers.get('x-access-token')        
         if not token:
-            return jsonify({'message': 'Token is missing!'}), 403
+            return jsonify({'message': 'Token is missing.'}), 403
 
         try:
             data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])            
-            print(User.query.filter_by(id=data['user_id']).first())
             current_user = User.query.filter_by(id=data['user_id']).first()
-        except:
-            return jsonify({'message': 'Token is invalid!'}), 403
-        
+        except ExpiredSignatureError:
+            return jsonify({'message': 'Token expired. Please refresh your token.'}), 401
+        except InvalidTokenError:
+            return jsonify({'message': 'Invalid token.'}), 403
+
         return f(current_user, *args, **kwargs)
     return decorated
