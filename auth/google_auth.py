@@ -1,5 +1,5 @@
 from models.users import User  # Suponiendo que tienes un modelo User
-from auth.token_manager import generate_access_token, generate_refresh_token
+from token_handler.auth_tokens import generate_access_token, generate_refresh_token
 from connection.google_connection import GoogleAuth
 from database.db_connection import db
 

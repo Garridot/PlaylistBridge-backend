@@ -1,6 +1,6 @@
 from flask import request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-from auth.token_manager import generate_access_token, generate_refresh_token
+from token_handler.auth_tokens import generate_access_token, generate_refresh_token
 from models.users import User
 from extensions.auth_extensions import password_validator
 from database.db_connection import db

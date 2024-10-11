@@ -9,6 +9,8 @@ JWT_SECRET = Config.SECRET_KEY
 JWT_ALGORITHM = 'HS256'
 REFRESH_TOKEN_EXPIRATION = 30 # en dias
 
+redis = get_redis_connection()
+
 def generate_access_token(user_id):
     payload = {
         'user_id': user_id,
@@ -32,7 +34,6 @@ def generate_refresh_token(user_id):
     return refresh_token
 
 def save_refresh_token_in_redis(user_id, refresh_token):    
-    redis = get_redis_connection()
     try:
         # Configuramos el tiempo de expiración en Redis (en segundos)
         refresh_token_expires_in_seconds = REFRESH_TOKEN_EXPIRATION * 24 * 60 * 60        
@@ -43,18 +44,16 @@ def save_refresh_token_in_redis(user_id, refresh_token):
 
 
 # Obtener Refresh Token desde Redis
-def get_refresh_token_from_redis(user_id):    
-    redis = get_redis_connection()
+def get_refresh_token_from_redis(user_id):  
     try:
         return redis.get(f"refresh_token:{user_id}") 
     except RedisError as e:
         print(f"Error getting refresh token to Redis: {e}")   
 
 def refresh_access_token(refresh_token):
-
     if not refresh_token:
         return jsonify({'message': 'Refresh token is missing!'}), 403
-
+        
     try:
         # Decodificar y validar el refresh token
         decoded_token = jwt.decode(refresh_token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
@@ -81,8 +80,7 @@ def refresh_access_token(refresh_token):
 
 
 def revoke_refresh_token(user_id):
-    # Eliminar el Refresh Token de Redis    
-    redis = get_redis_connection()
+    # Eliminar el Refresh Token de Redis        
     try:
         redis.delete(f"refresh_token:{user_id}")
     except RedisError as e:

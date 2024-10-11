@@ -3,7 +3,7 @@ from models.users import User
 from auth.manual_auth import register_user, login_user
 from auth.google_auth import google_auth_user
 from connection.google_connection import GoogleAuth
-from auth.token_manager import refresh_access_token, revoke_refresh_token
+from token_handler.auth_tokens import refresh_access_token, revoke_refresh_token
 from decorators.route_protection import token_required
 
 auth_bp = Blueprint('auth', __name__)

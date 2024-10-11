@@ -14,8 +14,8 @@ class SpotifyAuth:
         return self.sp_oauth.get_authorize_url()
 
     def get_token(self, code):
-        token_info = self.sp_oauth.get_access_token(code)
-        return token_info['access_token']
+        token_info = self.sp_oauth.get_access_token(code)   
+        return token_info
 
 
 
