@@ -61,9 +61,16 @@ def logout(current_user):
 @spotify_bp.route('/playlists', methods=['GET'])
 @token_required
 @stored_tokens_handler_errors
-def get_playlists(current_user): 
+def get_playlists_list(current_user): 
     playlists = spotify_service.get_user_playlists(current_user.id)
     return jsonify(playlists)
+
+@spotify_bp.route('/playlists/<playlist_id>', methods=['GET'])
+@token_required
+@stored_tokens_handler_errors
+def get_playlist(current_user, playlist_id): 
+    playlist = spotify_service.get_playlist(current_user.id, playlist_id)
+    return jsonify(playlist)    
 
 @spotify_bp.route('/playlists/<playlist_id>/tracks', methods=['GET'])
 @token_required
