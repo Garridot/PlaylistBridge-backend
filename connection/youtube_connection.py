@@ -1,6 +1,7 @@
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from config import Config
+import requests
 
 client_config = {
     "web": {
@@ -46,7 +47,7 @@ class YouTubeAuth:
         str : 
             The URL for user authorization via YouTube.
         """
-        auth_url, _ = self.flow.authorization_url(prompt='consent')
+        auth_url, _ = self.flow.authorization_url(prompt='consent', access_type='offline')
         return auth_url
 
     def get_token(self, code):
@@ -66,9 +67,21 @@ class YouTubeAuth:
         self.flow.fetch_token(code=code)
         credentials = self.flow.credentials
 
-        return {
-            'access_token': credentials.token,
-            'refresh_token': credentials.refresh_token,
-            'expires_in': credentials.expiry,  
-            'id_token': credentials.id_token
-        }
+        return credentials
+
+    def refresh_access_token(self, user_id, refresh_token):
+        params = {
+            "client_id": Config.YOUTUBE_CLIENT_ID,
+            "client_secret": Config.YOUTUBE_CLIENT_SECRET,
+            "refresh_token": refresh_token,
+            "grant_type": "refresh_token"
+        }        
+
+        authorization_url = "https://oauth2.googleapis.com/token"
+
+        response = requests.post(authorization_url, data=params)
+        
+        if response.ok:            
+            return response.json()
+        else:
+            return None    

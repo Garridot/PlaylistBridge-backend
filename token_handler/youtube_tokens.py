@@ -28,8 +28,11 @@ class YouTubeTokenHandler:
             NoRefreshTokenError: If no refresh token is found in Redis.
             InvalidTokenError: If refreshing the token fails.
 
-    store_tokens(user_id, token_info):
-        Stores access and refresh tokens in Redis.
+    store_access_token(user_id, token_info):
+        Stores access token in Redis.
+
+    store_refresh_token(user_id, token_info):
+        Stores refresh token in Redis.    
 
     revoke_tokens(user_id):
         Deletes the stored tokens for a user from Redis.
@@ -57,7 +60,8 @@ class YouTubeTokenHandler:
         dict: Token information, including access_token and refresh_token.
         """
         token_info = self.youtube_auth.get_token(code)
-        self.store_tokens(user_id, token_info)
+        self.store_access_token(user_id, token_info)
+        self.store_refresh_token(user_id, token_info)
         return token_info
 
     def get_valid_access_token(self, user_id):
@@ -69,46 +73,50 @@ class YouTubeTokenHandler:
         --------
         Credentials: Google OAuth credentials object containing the access token.
         """
-       
-        # if not cached, get it from Redis
+
         access_token = redis.get(f"{self.redis_prefix}access_token:{user_id}") 
 
         if not access_token: 
-            # if the token is not in Redis, refresh it           
-            return self.refresh_access_token(user_id)         
+            token_info = self.refresh_access_token(user_id)
+            return token_info["access_token"]    
 
-        return Credentials(access_token)
+        credentials = Credentials(token=access_token)    
+
+        return credentials
 
     def refresh_access_token(self, user_id):
         
         refresh_token = redis.get(f"{self.redis_prefix}refresh_token:{user_id}")
 
-        if not refresh_token:
-            raise NoRefreshTokenError()
+        if not refresh_token: raise NoRefreshTokenError()
 
-        try:
-            token_info = self.youtube_auth.refresh_access_token(refresh_token)
-        except Exception:
-            raise InvalidTokenError()
+        try: 
+            token_info = self.youtube_auth.refresh_access_token(user_id, refresh_token)
+            self.store_access_token(user_id, token_info)
+            return token_info["access_token"] 
+                       
+        except InvalidTokenError as e:
+            print({"error": e})
+            raise 
 
-        self.store_tokens(user_id, token_info)
-
-        return Credentials(token_info['access_token'])
-
-    def store_tokens(self, user_id, token_info):
-
-        access_token = token_info['access_token']
-        expires_in = token_info['expires_in'] 
+    def store_access_token(self, user_id, token_info):
+        access_token = token_info['access_token']        
         
-        # convert 'expires_in' to seconds
-        expiration_time_in_seconds = (expires_in - datetime.now()).total_seconds() 
+        # Revisamos si 'expires_in' es un objeto datetime, y si es así, convertimos la diferencia a segundos.
+        if isinstance(token_info['expires_in'], datetime):
+            expiration_time_in_seconds = (token_info['expires_in'] - datetime.now()).total_seconds()
+        else:
+            expiration_time_in_seconds = token_info['expires_in']  # Asumiendo que es un entero en segundos
         
-        # store the access token in Redis
-        redis.setex(f"{self.redis_prefix}access_token:{user_id}", expiration_time_in_seconds, access_token)             
+        # Aseguramos que expiration_time_in_seconds sea un valor positivo y entero
+        expiration_time_in_seconds = int(max(0, expiration_time_in_seconds))       
 
-        if 'refresh_token' in token_info: 
-            # store the refresh token in Redis            
-            redis.set(f"{self.redis_prefix}refresh_token:{user_id}", token_info['refresh_token'])
+        # Guardamos el token de acceso en Redis
+        redis.setex(f"{self.redis_prefix}access_token:{user_id}", expiration_time_in_seconds, access_token)        
+
+    def store_refresh_token(self, user_id, token_info):
+        refresh_token = token_info['refresh_token']  
+        redis.set(f"{self.redis_prefix}refresh_token:{user_id}", refresh_token)    
             
     def revoke_tokens(self, user_id):
         # Remove Access Token from Redis and cache
