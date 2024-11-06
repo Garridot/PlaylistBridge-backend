@@ -2,8 +2,10 @@ import spotipy
 from connection.spotify_connection import SpotifyAuth
 from token_handler.spotify_tokens import SpotifyTokenHandler
 from flask import jsonify
-from errors.playlist_exceptions import PlaylistNotFoundError, TrackNotFoundError
+from errors.playlist_exceptions import PlaylistNotFoundError, TrackNotFoundError, APIRequestError, InvalidPlaylistIDError
 from errors.custom_exceptions import NoRefreshTokenError
+from concurrent.futures import ThreadPoolExecutor
+from spotipy.exceptions import SpotifyException
 
 spotify_tokens= SpotifyTokenHandler()      
 
@@ -56,8 +58,11 @@ class SpotifyService:
         A list of playlists owned by the user.
         """
         sp = self._get_spotify_client(user_id)
-        playlists = sp.current_user_playlists()
-        return playlists['items']
+        try:
+            playlists = sp.current_user_playlists()
+            return playlists['items']
+        except SpotifyException as e:
+            raise APIRequestError(f"Error retrieving playlists: {e}")
 
     def get_playlist(self, user_id, playlist_id):
         """
@@ -80,16 +85,14 @@ class SpotifyService:
         
         try:
             playlist = sp.playlist(playlist_id)
-            return {
-                "name": playlist["name"],
-                "description": playlist["description"],
-                "tracks": playlist["tracks"]["items"]
-            }
-        except spotipy.exceptions.SpotifyException as e:
+            return playlist
+        except SpotifyException as e:
             if e.http_status == 404:
                 raise PlaylistNotFoundError(f"Playlist with ID '{playlist_id}' not found on Spotify.")
+            elif e.http_status == 400:
+                raise InvalidPlaylistIDError(f"The playlist ID '{playlist_id}' is invalid.")
             else:
-                raise APIRequestError(f"Failed to retrieve playlist: {str(e)}")    
+                raise APIRequestError(f"Failed to retrieve playlist: {str(e)}")   
 
     def get_playlist_tracks(self, user_id, playlist_id):
         """
@@ -105,10 +108,16 @@ class SpotifyService:
         A list of tracks in the playlist.
         """
         sp = self._get_spotify_client(user_id)
-        tracks = sp.playlist_tracks(playlist_id)
-        return tracks['items']
+        try:
+            tracks = sp.playlist_tracks(playlist_id)
+            return tracks['items']
+        except SpotifyException as e:
+            if e.http_status == 404:
+                raise PlaylistNotFoundError(f"Playlist with ID '{playlist_id}' not found on Spotify.")
+            else:
+                raise APIRequestError(f"Error retrieving playlist tracks: {e}")
 
-    def create_playlist(self, user_id, name, public=True):
+    def create_playlist(self, user_id, name, description, public=True):
         """
         Creates a new playlist for the specified user on Spotify.
 
@@ -116,6 +125,7 @@ class SpotifyService:
         -----------
         user_id (str): The unique user identifier.
         name (str): The name of the new playlist.
+        description (str): The description of the new playlist.
         public (bool): Visibility of the playlist, public or private.
 
         Returns: 
@@ -123,19 +133,22 @@ class SpotifyService:
         str: The ID of the created playlist.
         """
         sp = self._get_spotify_client(user_id)
-        playlist = sp.user_playlist_create(user=user_id, name=name, public=public)
-        return playlist['id'] 
+        try:
+            current_user_id = sp.me()['id']
+            playlist = sp.user_playlist_create(user=current_user_id, name=name, description=description, public=public)
+            return playlist['id']
+        except SpotifyException as e:
+            raise APIRequestError(f"Error creating playlist: {e}")        
 
-    def add_track_to_playlist(self, user_id, playlist_id, track_name, artist_name):
+    def add_track_to_playlist(self, user_id, playlist_id, track_id):
         """
         Adds a track to the specified playlist by searching for the track on Spotify.
 
         Parameters:
         -----------
         user_id (str): The unique user identifier.
-        playlist_id (str): The ID of the playlist to add the track to.
-        track_name (str): The name of the track.
-        artist_name (str): The name of the track's artist.
+        playlist_id (str): The ID of the playlist to add the track to.        
+        track_id (str): The ID of the track to add to..
 
         Raises:
         -----------
@@ -143,26 +156,59 @@ class SpotifyService:
         """
         sp = self._get_spotify_client(user_id)
         
-        # Search for the track
-        query = f"track:{track_name} artist:{artist_name}"
-        result = sp.search(q=query, type='track', limit=1)
-        
-        if not result['tracks']['items']:
-            raise TrackNotFoundError(f"Track '{track_name}' by '{artist_name}' not found on Spotify.")
-        
-        # Get track ID and add to playlist
-        track_id = result['tracks']['items'][0]['id']
-        sp.playlist_add_items(playlist_id, [track_id])   
+        try:
+            sp.playlist_add_items(playlist_id, [track_id])
+        except SpotifyException as e:
+            if e.http_status == 404:
+                raise TrackNotFoundError(f"Track with ID '{track_id}' not found on Spotify.")
+            else:
+                raise APIRequestError(f"Error adding track to playlist: {e}")  
 
+    def search_track(self, user_id, track_query):                
+        """
+        Search for a specific song by its title and return the first result.
+        """
+        sp = self._get_spotify_client(user_id)
+        try:
+            result = sp.search(track_query, limit=1, type="track")
+            if result['tracks']['items']:
+                return result['tracks']['items'][0]
+            else:
+                raise TrackNotFoundError(f"No results found for '{track_query}'.")
+        except SpotifyException as e:
+            raise APIRequestError(f"Error searching for track: {e}")   
 
-    def batch_search_tracks(self, current_user, track_queries):
-        # Divide los tracks en lotes de 50
-        track_batches = [track_queries[i:i + 50] for i in range(0, len(track_queries), 50)]
+    def batch_search_tracks(self, user_id, track_queries):   
+        """
+        Search a list of songs in parallel.
+        
+        Parameters:
+        ----------
+        track_queries (list): List of songs to search, in "Song - Artist" format.
+
+        Returns:
+        --------
+        list: List of matching Spotify song results.
+        """    
+
         results = []
         
-        for batch in track_batches:
-            query = " OR ".join(batch)
-            batch_results = self.spotify.search(query, limit=50, type="track")
-            results.extend(batch_results["tracks"]["items"])
+        # Utilize a ThreadPoolExecutor to conduct searches simultaneously.
+        with ThreadPoolExecutor() as executor:
+            futures = {executor.submit(self.search_track, user_id, query): query for query in track_queries}            
+            
+            # Process the results as they are completed.
+            for future in futures:
+                try:
+                    result = future.result()
+                    if result:
+                        results.append(result)
+                except TrackNotFoundError as e:
+                    print(f"Track not found: {e}")
+                except APIRequestError as e:
+                    print(f"API error: {e}")
+                except Exception as e:
+                    print(f"Unexpected error: {e}")
+        
         return results
        
