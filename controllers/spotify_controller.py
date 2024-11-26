@@ -12,7 +12,7 @@ spotify_tokens= SpotifyTokenHandler()
 
 @spotify_bp.route('/auth/login')
 @token_required
-def login(user_id):
+def login(current_user):
     """
     Generates the Spotify login URL where the user needs to authenticate.
     
@@ -51,12 +51,19 @@ def callback(current_user):
         'refresh_token': token_info["refresh_token"]
         })
 
-@spotify_bp.route('/auth/logout')
+@spotify_bp.route('/auth/logout', methods=['POST'])
 @token_required
 def logout(current_user): 
     spotify_tokens.revoke_access_token(current_user.id)
     spotify_tokens.revoke_refresh_token(current_user.id)
     return jsonify({'message': 'Spotify logout successful' })       
+
+@spotify_bp.route('/user_data', methods=['GET'])
+@token_required
+@stored_tokens_handler_errors
+def get_user_data(current_user): 
+    user_data = spotify_service.get_user_info(current_user.id)
+    return jsonify(user_data)
 
 @spotify_bp.route('/playlists', methods=['GET'])
 @token_required

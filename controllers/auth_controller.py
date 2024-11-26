@@ -10,7 +10,7 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
-    data = request.get_json()
+    data = request.get_json() 
     user = register_user(data)
     return user
 
@@ -23,9 +23,9 @@ def login():
 @auth_bp.route('/logout', methods=['POST'])
 @token_required  
 def logout(current_user):
-    refresh_token = request.headers.get('x-refresh-token')
-    if refresh_token:
-        user_id = current_user.id
+    access_token = request.headers.get('x-access-token')
+    if access_token:
+        user_id = current_user.id        
         revoke_refresh_token(user_id)  # Revocar el token del usuario
     return jsonify({'message': 'Logged out successfully!'}), 200
 
@@ -42,15 +42,14 @@ google_auth = GoogleAuth()
 @auth_bp.route('/google/login', methods=['GET'])
 def google_login():
     auth_url = google_auth.get_auth_url()
-    return redirect(auth_url)
+    return jsonify({"google_auth_url":auth_url})
 
 @auth_bp.route('/google/callback', methods=['GET'])
 def google_callback():
     code = request.args.get('code')
-    token = google_auth.get_token(code)
-    user_info = google_auth.get_google_user_info()
-    google_auth_user(user_info)
+    if not code: return jsonify({'error': 'Missing authorization code'}), 400
+    token = google_auth.get_token(code)    
+    user_info = google_auth.get_google_user_info()    
+    response = google_auth_user(user_info)
 
-    return jsonify(google_auth)
-
-
+    return jsonify(response)    

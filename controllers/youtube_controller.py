@@ -41,22 +41,29 @@ def callback(current_user):
         json: A JSON object containing the access and refresh tokens.
     """    
     code = request.args.get('code')    
-    token_info = youtube_auth.get_token(code)        
-    youtube_tokens.store_tokens(current_user.id, token_info)
-    
+    token_info = youtube_auth.get_token(code) 
+        
+    youtube_tokens.store_access_token(current_user.id, token_info)
+    youtube_tokens.store_refresh_token(current_user.id, token_info)
+        
     return jsonify({
-        'message': 'YouTube authentication successful', 
-        'access_token': token_info['access_token'],
-        'refresh_token': token_info['refresh_token']
+        'message': 'YouTube authentication successful',         
     })
 
 
-@youtube_bp.route('/auth/logout')
+@youtube_bp.route('/auth/logout', methods=['POST'])
 @token_required
 @stored_tokens_handler_errors
 def logout(current_user):
     youtube_service.logout(current_user.id)
     return jsonify({'message': 'YouTube logout successful'})
+
+@youtube_bp.route('/user_data', methods=['GET'])
+@token_required
+@stored_tokens_handler_errors
+def get_user_data(current_user):
+    user_data = youtube_service.get_user_account_info(current_user.id)
+    return jsonify(user_data)    
 
 
 @youtube_bp.route('/playlists', methods=['GET'])
@@ -68,7 +75,7 @@ def get_playlists(current_user):
 
 @youtube_bp.route('/playlists/<playlist_id>', methods=['GET'])
 @token_required
-# @stored_tokens_handler_errors
+@stored_tokens_handler_errors
 def get_playlist(current_user, playlist_id): 
     playlist = youtube_service.get_playlist(current_user.id, playlist_id)
     return jsonify(playlist)        
