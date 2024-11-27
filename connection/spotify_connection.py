@@ -18,7 +18,7 @@ class SpotifyAuth:
             client_id=Config.SPOTIFY_CLIENT_ID,
             client_secret=Config.SPOTIFY_CLIENT_SECRET,
             redirect_uri=Config.SPOTIFY_REDIRECT_URI,
-            scope="playlist-read-private playlist-modify-private"
+            scope="playlist-read-private playlist-modify-private playlist-modify-public"
         )
 
     def get_auth_url(self):

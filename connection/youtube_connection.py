@@ -1,6 +1,7 @@
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from config import Config
+from errors.custom_exceptions import InvalidTokenError
 import requests
 
 client_config = {
@@ -65,11 +66,33 @@ class YouTubeAuth:
             A dictionary containing access token, refresh token, token expiry, and ID token.
         """
         self.flow.fetch_token(code=code)
-        credentials = self.flow.credentials
+        credentials = self.flow.credentials 
 
-        return credentials
+        # Returns a dictionary with the key values ​​of the credentials object
+        return {
+            "access_token": credentials.token,
+            "refresh_token": credentials.refresh_token,
+            "token_expiry": credentials.expiry,
+            "id_token": credentials.id_token
+        }
 
-    def refresh_access_token(self, user_id, refresh_token):
+    def refresh_access_token(self, refresh_token):       
+        """        
+        Uses the stored refresh token to obtain a new access token.
+
+        Parameters:
+        -----------
+        user_id (str): The ID of the user.
+        refresh_token (str): The refresh token for the user's YouTube account.
+
+        Returns:
+        --------
+        dict: A dictionary containing the new access token and expiration details.
+        
+        Raises:
+        -------
+        InvalidTokenError: If the refresh token request fails.
+        """        
         params = {
             "client_id": Config.YOUTUBE_CLIENT_ID,
             "client_secret": Config.YOUTUBE_CLIENT_SECRET,
@@ -81,7 +104,8 @@ class YouTubeAuth:
 
         response = requests.post(authorization_url, data=params)
         
-        if response.ok:            
+        if response.ok:
             return response.json()
         else:
-            return None    
+            error_msg = response.json().get("error_description", "Unknown error")
+            raise InvalidTokenError(f"Failed to refresh the access token: {error_msg}")

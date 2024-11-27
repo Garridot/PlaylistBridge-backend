@@ -131,8 +131,7 @@ class SpotifyTokenHandler:
         --------
         user_id (str): The unique user identifier.        
         """
-        redis.delete(f"spotify_access_token:{user_id}")          
-        
+        redis.delete(f"spotify_access_token:{user_id}") 
     
     def revoke_refresh_token(self, user_id):
         """

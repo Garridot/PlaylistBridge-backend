@@ -65,8 +65,7 @@ class GoogleAuth:
             The access token for authenticated requests.
         """
         self.flow.fetch_token(code=code)
-        credentials = self.flow.credentials
-        print(credentials)
+        credentials = self.flow.credentials        
         return credentials.token
 
     def get_google_user_info(self):

@@ -133,4 +133,4 @@ def revoke_refresh_token(user_id):
     try:
         redis.delete(f"refresh_token:{user_id}")
     except RedisError as e:
-        print(f"Error removin refresh token to Redis: {e}")   
+        print(f"Error removing refresh token to Redis: {e}")    
