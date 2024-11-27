@@ -48,6 +48,6 @@ def stored_tokens_handler_errors(func):
         except InvalidTokenError as e:
             return jsonify({"error": e.message}), e.status_code
         except Exception as e:
-            return jsonify({"error": "An unexpected error occurred"}), 500
+            return jsonify({"error": f"An unexpected error occurred: {e}"}), 500
     return wrapper
 

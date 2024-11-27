@@ -6,6 +6,9 @@ from errors.playlist_exceptions import PlaylistNotFoundError, TrackNotFoundError
 from errors.custom_exceptions import NoRefreshTokenError
 from concurrent.futures import ThreadPoolExecutor
 from spotipy.exceptions import SpotifyException
+import logging
+
+logger = logging.getLogger(__name__)
 
 spotify_tokens= SpotifyTokenHandler()      
 
@@ -44,7 +47,25 @@ class SpotifyService:
         if not token:
             raise NoRefreshTokenError()
         return spotipy.Spotify(auth=token)
-        
+
+    def get_user_info(self, user_id):
+        """
+        Retrieves details of the user account.
+
+        Parameters:
+        -----------
+        user_id (str): The unique user identifier.        
+
+        Returns:
+        -----------
+        dict: Details of the user account including name, followers, profile picture, etc.
+        """
+        sp = self._get_spotify_client(user_id)
+        try:
+            return sp.me()
+        except SpotifyException as e:
+            raise APIRequestError(f"Error retrieving details of the user account: {e}")
+
     def get_user_playlists(self, user_id):
         """
         Retrieves the playlists of the specified user by making a request to Spotify’s API.
@@ -59,8 +80,15 @@ class SpotifyService:
         """
         sp = self._get_spotify_client(user_id)
         try:
-            playlists = sp.current_user_playlists()
-            return playlists['items']
+            playlists = sp.current_user_playlists()            
+
+            # Filter the playlists that belong to the user.
+            user_playlists = [
+                playlist for playlist in playlists['items'] if playlist['owner']['id'] == sp.me()['id']
+            ]
+            
+            return user_playlists
+
         except SpotifyException as e:
             raise APIRequestError(f"Error retrieving playlists: {e}")
 
@@ -108,9 +136,9 @@ class SpotifyService:
         A list of tracks in the playlist.
         """
         sp = self._get_spotify_client(user_id)
-        try:
+        try:            
             tracks = sp.playlist_tracks(playlist_id)
-            return tracks['items']
+            return tracks["items"]
         except SpotifyException as e:
             if e.http_status == 404:
                 raise PlaylistNotFoundError(f"Playlist with ID '{playlist_id}' not found on Spotify.")
@@ -176,39 +204,4 @@ class SpotifyService:
             else:
                 raise TrackNotFoundError(f"No results found for '{track_query}'.")
         except SpotifyException as e:
-            raise APIRequestError(f"Error searching for track: {e}")   
-
-    def batch_search_tracks(self, user_id, track_queries):   
-        """
-        Search a list of songs in parallel.
-        
-        Parameters:
-        ----------
-        track_queries (list): List of songs to search, in "Song - Artist" format.
-
-        Returns:
-        --------
-        list: List of matching Spotify song results.
-        """    
-
-        results = []
-        
-        # Utilize a ThreadPoolExecutor to conduct searches simultaneously.
-        with ThreadPoolExecutor() as executor:
-            futures = {executor.submit(self.search_track, user_id, query): query for query in track_queries}            
-            
-            # Process the results as they are completed.
-            for future in futures:
-                try:
-                    result = future.result()
-                    if result:
-                        results.append(result)
-                except TrackNotFoundError as e:
-                    print(f"Track not found: {e}")
-                except APIRequestError as e:
-                    print(f"API error: {e}")
-                except Exception as e:
-                    print(f"Unexpected error: {e}")
-        
-        return results
-       
+            raise APIRequestError(f"Error searching for track: {e}")       

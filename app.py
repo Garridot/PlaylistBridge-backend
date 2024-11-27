@@ -2,6 +2,7 @@ from flask import Flask
 from controllers.auth_controller import auth_bp
 from controllers.spotify_controller import spotify_bp
 from controllers.youtube_controller import youtube_bp
+from controllers.migration_controller import migration_bp
 from config import Config
 from database.db_connection import db
 
@@ -30,7 +31,7 @@ def create_app():
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(spotify_bp, url_prefix='/spotify')
     app.register_blueprint(youtube_bp, url_prefix='/youtube')
-
+    app.register_blueprint(migration_bp, url_prefix="/migrate")
     with app.app_context(): # creates all tables in the database if they do not exist.       
         db.create_all()
 
