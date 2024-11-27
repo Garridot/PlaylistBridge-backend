@@ -25,8 +25,8 @@ def register_user(data):
         - Error message (400) if user already exists or if password is weak.
     """
 
-    email = data.get('email')
-    password = data.get('password')
+    email = data['email']
+    password = data['password']
 
     # check if the user already exists in the database.
     if User.query.filter_by(email=email).first():
@@ -65,8 +65,8 @@ def login_user(data):
         - If credentials are invalid, returns a 401 error with an "Invalid credentials" message.    
     """
     
-    email = data.get('email')
-    password = data.get('password')
+    email = data['email']
+    password = data['password']
 
     # check if the user already exists in the database.
     user = User.query.filter_by(email=email).first()
