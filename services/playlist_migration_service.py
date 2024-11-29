@@ -29,7 +29,7 @@ class PlaylistMigration:
             spotify_tracks = self.spotify_service.get_playlist_tracks(current_user, playlist_id)   
 
             # Create playlist on YouTube
-            youtube_playlist_id = self.youtube_service.create_playlist(current_user, spotify_playlist["name"],spotify_playlist["description"])
+            youtube_playlist = self.youtube_service.create_playlist(current_user, spotify_playlist["name"],spotify_playlist["description"])
 
             for i, track in enumerate(spotify_tracks): 
                 
@@ -37,21 +37,17 @@ class PlaylistMigration:
                 youtube_result = self.youtube_service.search_track(current_user, track) 
 
                 if youtube_result:    
-                    # Add each song from the Spotify playlist to the new YouTube playlist.
-                    track_name = youtube_result["snippet"]["title"]                    
-                    artist = youtube_result["snippet"]["channelTitle"]
-                    self.youtube_service.add_track_to_playlist(current_user, youtube_playlist_id["id"], youtube_result["id"]["videoId"])
+                    # Add each song from the Spotify playlist to the new YouTube playlist.                    
+                    self.youtube_service.add_track_to_playlist(current_user, youtube_playlist["id"], youtube_result["id"]["videoId"])
 
-                    tracks_migrated.append({"track": f"{track_name}", "artist": f"{artist}", "found": True})
+                    tracks_migrated.append({"track": f"{youtube_result}", "found": True})
                 
                 else:    
-                    track = spotify_tracks[i]
-                    track_name, artist = track["name"], track['artists'][0]["name"]                                           
-                    
-                    tracks_migrated.append({"track": f"{track_name}", "artist": f"{artist}", "found": False})                                 
+                    track = spotify_tracks[i]  
+                    tracks_migrated.append({"track": f"{track}", "found": False})                                 
             
             logger.info(f"Playlist '{spotify_playlist['name']}' migrated successfully from Spotify to YouTube.")            
-            return {"youtube_playlist_id": youtube_playlist_id, "tracks_migrated": tracks_migrated}
+            return {"youtube_playlist": youtube_playlist, "tracks_migrated": tracks_migrated}
 
         except PlaylistNotFoundError as e:
             logger.error(f"Playlist not found on Spotify: {e}")
@@ -89,24 +85,19 @@ class PlaylistMigration:
 
                 if spotify_result: 
                     
-                    # Add each song from the YouTube playlist to the new Spotify playlist.
-                    track_name, artist = spotify_result["name"], spotify_result['artists'][0]["name"]                         
+                    # Add each song from the YouTube playlist to the new Spotify playlist.                                          
                     self.spotify_service.add_track_to_playlist(current_user, spotify_playlist, spotify_result['id'])   
-                    tracks_migrated.append({"track": f"{track_name}", "artist": f"{artist}", "found": True})                
+                    tracks_migrated.append({"track": f"{spotify_result}", "found": True})                
                 
                 else:
-                    track = youtube_tracks[i]
-                    track_name, artist = track["snippet"]["title"], track["snippet"]["channelTitle"]                     
-                    tracks_migrated.append({"track": f"{track_name}", "artist": f"{artist}", "found": False})            
+                    track = youtube_tracks[i]                                     
+                    tracks_migrated.append({"track": f"{track}", "found": False})            
             
-            return {"spotify_playlist_id": "spotify_playlist_id", "tracks_migrated": tracks_migrated}
+            return {"spotify_playlist_id": spotify_playlist, "tracks_migrated": tracks_migrated}
 
         except PlaylistNotFoundError as e:
             logger.error(f"Playlist not found on YouTube: {e}")
-            raise
-        except TrackNotFoundError as e:
-            logger.error(f"Track not found on Spotify: {e}")
-            raise
+            raise        
         except APIRequestError as e:
             logger.error(f"API request error during migration: {e}")
             raise

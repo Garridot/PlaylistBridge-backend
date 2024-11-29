@@ -84,9 +84,8 @@ class SpotifyService:
 
             # Filter the playlists that belong to the user.
             user_playlists = [
-                playlist for playlist in playlists['items'] if playlist['owner']['id'] == sp.me()['id']
+                playlist for playlist in playlists['items'] if playlist != None and playlist['owner']['id'] == sp.me()['id']
             ]
-            
             return user_playlists
 
         except SpotifyException as e:
