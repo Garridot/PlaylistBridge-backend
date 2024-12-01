@@ -162,8 +162,8 @@ class SpotifyService:
         sp = self._get_spotify_client(user_id)
         try:
             current_user_id = sp.me()['id']
-            playlist = sp.user_playlist_create(user=current_user_id, name=name, description=description, public=public)
-            return playlist['id']
+            playlist = sp.user_playlist_create(user=current_user_id, name=name, description=description, public=public)            
+            return playlist
         except SpotifyException as e:
             raise APIRequestError(f"Error creating playlist: {e}")        
 
@@ -197,7 +197,7 @@ class SpotifyService:
         """
         sp = self._get_spotify_client(user_id)
         try:
-            result = sp.search(track_query, limit=1, type="track")
+            result = sp.search(track_query, limit=1, type="track")            
             if result['tracks']['items']:
                 return result['tracks']['items'][0]
             else:

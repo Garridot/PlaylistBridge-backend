@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, MagicMock
 from services.youtube_service import YouTubeService
 
 class TestYouTubeService(unittest.TestCase):
@@ -111,6 +111,40 @@ class TestYouTubeService(unittest.TestCase):
         # Assert the video details match the mock response.
         self.assertEqual(response["snippet"]["playlistId"], self.playlist_id)
         self.assertEqual(response["snippet"]["title"], "Video Title")
+
+    @patch('token_handler.youtube_tokens.YouTubeTokenHandler.get_valid_access_token', return_value="fake_youtube_token")
+    @patch('services.youtube_service.build')
+    def test_search_filters_correctly(self, mock_build, MockTokenHandler):        
+
+        # Configura el mock para la API de YouTube
+        mock_youtube = MagicMock()
+        mock_build.return_value = mock_youtube
+
+        mock_search = MagicMock()
+        mock_youtube.search.return_value = mock_search
+
+        # Configura la respuesta de la búsqueda
+        mock_search.list.return_value.execute.return_value = {
+            "items": [
+                {"snippet": {"title": "Song1", "channelTitle": "Artist1"}},
+                {"snippet": {"title": "Song2", "channelTitle": "Artist2"}}
+            ]
+        }
+
+        query = "Test Song Artist"
+        results = self.youtube_service.search_track(self.user_id, query)
+
+        # Verifica que se llamaron los parámetros correctos
+        mock_search.list.assert_called_with(
+            part="snippet",
+            q=f"{query} audio OR lyrics OR topic",
+            type="video",
+            videoDuration="short"
+        )
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0]['snippet']['title'], "Song1")
+        self.assertEqual(results[1]['snippet']['title'], "Song2")
+
 
 if __name__ == '__main__':
     unittest.main() 
