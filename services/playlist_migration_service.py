@@ -40,11 +40,7 @@ class PlaylistMigration:
                     # Add each song from the Spotify playlist to the new YouTube playlist.                    
                     self.youtube_service.add_track_to_playlist(current_user, youtube_playlist["id"], youtube_result["id"]["videoId"])
 
-                    tracks_migrated.append({"track": f"{youtube_result}", "found": True})
-                
-                else:    
-                    track = spotify_tracks[i]  
-                    tracks_migrated.append({"track": f"{track}", "found": False})                                 
+                    tracks_migrated.append(youtube_result)                                 
             
             logger.info(f"Playlist '{spotify_playlist['name']}' migrated successfully from Spotify to YouTube.")            
             return {"playlist_created": youtube_playlist, "tracks_migrated": tracks_migrated}
@@ -87,13 +83,9 @@ class PlaylistMigration:
                     
                     # Add each song from the YouTube playlist to the new Spotify playlist.                                          
                     self.spotify_service.add_track_to_playlist(current_user, spotify_playlist["id"], spotify_result['id'])   
-                    tracks_migrated.append({"track": f"{spotify_result}", "found": True})                
-                
-                else:
-                    track = youtube_tracks[i]                                     
-                    tracks_migrated.append({"track": f"{track}", "found": False})            
+                    tracks_migrated.append(spotify_result)    
             
-            return {"playlist_created": spotify_playlist, "tracks_migrated": tracks_migrated}
+            return {"playlist_created": spotify_playlist, "tracks_migrated": tracks_migrated}            
 
         except PlaylistNotFoundError as e:
             logger.error(f"Playlist not found on YouTube: {e}")
