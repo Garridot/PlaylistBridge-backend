@@ -11,6 +11,7 @@ __pycache__/
 # Logs and databases
 *.log
 *.sqlite3
+*.1
 
 # Environment variables
 .env

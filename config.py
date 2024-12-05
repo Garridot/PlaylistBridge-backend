@@ -6,6 +6,7 @@ load_dotenv()
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 class Config:
+    """Base configuration."""
     SECRET_KEY = os.getenv('SECRET_KEY')
     # SPOTIFY CONFIG
     SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID')
@@ -19,9 +20,25 @@ class Config:
     GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
     GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
     GOOGLE_REDIRECT_URI = os.getenv('GOOGLE_REDIRECT_URI')  
-    
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(BASE_DIR, 'app.db')
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # REDIS CONFIG (UPTASH CREDENTIALS)
     REDIS_URL = os.getenv('REDIS_URL')
     REDIS_TOKEN = os.getenv('REDIS_TOKEN')
+
+
+class DevelopmentConfig(Config):
+    """Development configuration."""
+    DEBUG = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(BASE_DIR, 'app.db')
+
+class ProductionConfig(Config):
+    """Production configuration."""
+    DEBUG = False
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
+
+config = {
+    "development": DevelopmentConfig,
+    "production": ProductionConfig,
+    "default": DevelopmentConfig,
+}    

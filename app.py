@@ -4,14 +4,16 @@ from controllers.auth_controller import auth_bp
 from controllers.spotify_controller import spotify_bp
 from controllers.youtube_controller import youtube_bp
 from controllers.migration_controller import migration_bp
-from config import Config
-from database.db_connection import db
+from config import config
+from database.db_connection import db, init_db
+from flask_migrate import Migrate
 from flask_talisman import Talisman
 import logging
 from logging.handlers import RotatingFileHandler
 from pythonjsonlogger import jsonlogger  
 from prometheus_flask_exporter import PrometheusMetrics
 from time import time
+import os
 
 
 def configure_logging(app):
@@ -91,13 +93,17 @@ def create_app():
     # use Flask-Prometheus to obtain server metrics.
     PrometheusMetrics(app)
 
-    app.config.from_object(Config)  # load the configuration from config.py.
+    config_name = os.getenv("FLASK_ENV","default")
+    # load the configuration from config.py.
+    app.config.from_object(config[config_name])
 
     # configure logging
     configure_logging(app)
 
     # initialize the database with the app.
-    db.init_app(app)
+    init_db(app)
+
+    Migrate(app, db)
 
     # security headers
     Talisman(app)
